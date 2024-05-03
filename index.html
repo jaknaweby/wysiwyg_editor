@@ -8,8 +8,11 @@
 <body>
     <button onclick="exec('1', 'bold')">Bold</button>
     <button onclick="exec('1', 'italic')">Italic</button>
+    <button onclick="exec('1', 'underline')">Underline</button>
     <!-- <div id="1" contenteditable="true"><i><b>A</b></i>&gt;AHoj&lt;<b>Ahoj</b></div> -->
-    <div id="1" contenteditable="true">Hello <b>World</b> there</div>
+    <!-- <div id="1" contenteditable="true">Hello <b><i>World</i></b> there</div> -->
+    <div id="1" contenteditable="true"><i><u><b>Hello</b></u><b> <i>W<b>orld</b></i> there</b></i></div> <!-- Select "Hello Wor" and press "Bold" to break the code -->
+
     <!-- <div id="1" contenteditable="true"><b>a</b>bcdefg</div> -->
 </body>
 <script>
@@ -17,6 +20,7 @@
         switch (action) {
             case "bold": return "b";
             case "italic": return "i";
+            case "underline": return "u";
             default: return null;
         }
     }
@@ -52,12 +56,10 @@
     function removeFromEnd(haystack, needle) {
         let lastOccurance = haystack.lastIndexOf(needle);
         return haystack.substring(0, lastOccurance) + haystack.substring(lastOccurance).replace(needle, "");
-        // return haystack.substring(0, haystack.length - needle.length);
     }
     
     function removeFromStart(haystack, needle) {
         return haystack.replace(needle, "");
-        // return haystack.substring(needle.length);
     }
 
     function exec(id, action) {
@@ -77,73 +79,49 @@
             if (tagName(action) == null) { return; }
             let openingTag = `<${tagName(action)}>`, enclosingTag = `</${tagName(action)}>`;
 
-            /* If selection is on the whole selection of some fomatting */
-            if (firstOccuranceIn(selection, openingTag) && lastOccuranceIn(selection, enclosingTag)) { // ... | <x>...</x> | ...
-                selection = removeFromStart(selection, openingTag);
-                selection = removeFromEnd(selection, enclosingTag);
-            } else if (lastOccuranceIn(before, openingTag) && firstOccuranceIn(after, enclosingTag)) { // ...<x> | ... | </x>... 
-                before = removeFromEnd(before, openingTag);
-                after = removeFromStart(after, enclosingTag);
-            } else if (lastOccuranceIn(before, openingTag) && lastOccuranceIn(selection, enclosingTag)) { // ...<x> | ...</x> | ...
-                before = removeFromEnd(before, openingTag);
-                selection = removeFromEnd(selection, enclosingTag);
-            } else if (firstOccuranceIn(selection, openingTag) && firstOccuranceIn(after, enclosingTag)) { // ... | <x>... | </x>...
-                selection = removeFromStart(selection, openingTag);
-                after = removeFromStart(after, enclosingTag);
-            } else { /* If selection is NOT on the whole selection of some fomatting */
-                let startTags = tagsIn(0, start, [], id);
-                if (startTags == -1) { return; }
-                let endTags = tagsIn(start, end, startTags.slice(0), id);
-                if (endTags == -1) { return; }
-                let fullTags = tagsIn(start, end, startTags.slice(0), id, true);
+            let startTags = tagsIn(0, start, [], id);
+            if (startTags == -1) { return; }
+            let endTags = tagsIn(start, end, startTags.slice(0), id);
+            if (endTags == -1) { return; }
+            let fullTags = tagsIn(start, end, startTags.slice(0), id, true);
 
-                if (!startTags.includes(tagName(action)) && !firstOccuranceIn(selection, openingTag) && !endTags.includes(tagName(action)) && !lastOccuranceIn(selection, enclosingTag)) {
-                    selection = selection.replace(openingTag, '');
-                    selection = selection.replace(enclosingTag, '');
-                    selection = openingTag + selection + enclosingTag;
-                    console.log("1");
-                } else if (false) {
-
-                } else if (startTags.includes(tagName(action)) && endTags.includes(tagName(action)) && !fullTags.includes(tagName(action))) {
-                    console.log("2");
-                } else if (firstOccuranceIn(selection, openingTag) && fullTags.includes(tagName(action))) {
-                    selection = removeFromStart(selection, openingTag) + openingTag;
-                } else if ((lastOccuranceIn(selection, enclosingTag) || firstOccuranceIn(after, enclosingTag)) && fullTags.includes(tagName(action))) {
-                    selection = enclosingTag + removeFromEnd(selection, enclosingTag);
-                    console.log("3");
-                } else if (false) {
-                    console.log("4");
-                    // replace last ???
-                } else if (fullTags.includes(tagName(action))) {
-                    // selection = enclosingTag + selection + openingTag
-                    // console.log("5");
-                }
+            console.log(fullTags);
+            if (fullTags.includes(tagName(action))) { // <b> ... | ... | ... </b>
+                selection = enclosingTag + selection + openingTag;
+            } else if (startTags.includes(tagName(action)) && endTags.includes(tagName(action))) { // <b> ... | ... </b> ... <b> ... | ... </b>
+                selection = selection.replaceAll(`<${tagName(action)}>`, "");
+                selection = selection.replaceAll(`</${tagName(action)}>`, "");
+            } else if (startTags.includes(tagName(action)) && !endTags.includes(tagName(action))) { // <b> ... | ... </b> ... | ...
+                selection = selection.replaceAll(`</${tagName(action)}>`, "") + enclosingTag;
+            } else if (!startTags.includes(tagName(action)) && endTags.includes(tagName(action))) { // ... | ... <b> ... | ...
+                selection = openingTag + selection.replaceAll(`<${tagName(action)}>`, "");
+            } else {
+                selection = openingTag + selection + enclosingTag;
             }
 
-            node.innerHTML = processContent(before + selection + after);
+            node.innerHTML = before + selection + after;
+            node.innerHTML = processContent(node.innerHTML);
+
             console.log(node.innerHTML);
         }
     }
 
     function processContent(content) {
-        let inTag = false, currentTagName = "", isFollowing = false;
-
-        for (let i = 0; i < content.length; i++) {
-
+        let allowedTags = [ "b", "i", "u" ];
+        
+        for (let offset = 0; offset < allowedTags.length; offset++) {
+            for (let index = 0; index < allowedTags.length; index++) {
+                content = content.replaceAll(`<${allowedTags[(offset + index) % allowedTags.length]}></${allowedTags[(offset + index) % allowedTags.length]}>`, "");
+                content = content.replaceAll(`</${allowedTags[(offset + index) % allowedTags.length]}><${allowedTags[(offset + index) % allowedTags.length]}>`, "");
+            }
         }
-        return content;
-    }
 
-    function stripHtml(html)
-    {
-        let tmp = document.createElement("DIV");
-        tmp.innerHTML = html;
-        return tmp.textContent || tmp.innerText || "";
+        return content;
     }
 
     function tagsIn(from, to, currentTags, id, onlyFull = false) { // Returns formating of text on some index
         let content = document.getElementById(id).innerHTML;
-        let inTag = false, currentTagName = "", allTags = currentTags.slice(0);
+        let inTag = false, currentTagName = "";
 
         for (let index = from; index < to; index++) {
             if (!inTag && content[index] == "<") {
@@ -153,23 +131,19 @@
                     currentTags.splice(currentTags.indexOf(currentTagName.substring(1)), 1);
                     currentTagName = "";
                     inTag = false;
-                } else {
+                } else if (!onlyFull) {
                     return -1;
                 }
             } else if (inTag && content[index] != ">") {
                 currentTagName += content[index];
             } else if (inTag && content[index] == ">") {
-                if (onlyFull && !allTags.includes(currentTagName) || !onlyFull) {
-                    currentTags.push(currentTagName);
-                    allTags.push(currentTagName);
-                }
+                if (!onlyFull) { currentTags.push(currentTagName); }
                 inTag = false;
                 currentTagName = "";
             }
         }
 
         return currentTags;
-        // return allTags;
     }
 
     function actualIndex(id, breakIndex, isStart) {
@@ -194,7 +168,7 @@
             }
         }
 
-        while (content[actualIndex] == "<" && content[actualIndex + 1] != "/" && !isStart) {
+        while (content[actualIndex] == "<" && isStart) {
             while (true) {
                 if (content[actualIndex++] == ">") {
                     break;
