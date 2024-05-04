@@ -9,21 +9,26 @@
     <button onclick="exec('1', 'bold')">Bold</button>
     <button onclick="exec('1', 'italic')">Italic</button>
     <button onclick="exec('1', 'underline')">Underline</button>
-    <!-- <div id="1" contenteditable="true"><i><b>A</b></i>&gt;AHoj&lt;<b>Ahoj</b></div> -->
+    <button onclick="exec('1', 'superscript')">Superscript</button>
+    <!-- <div id="1" contenteditable="true">Hello World</div> -->
     <!-- <div id="1" contenteditable="true">Hello <b><i>World</i></b> there</div> -->
     <!-- <div id="1" contenteditable="true"><i><u><b>Hello</b></u><b> <i>W<b>orld</b></i> there</b></i></div> Select "Hello Wor" and press "Bold" to break the code -->
-    <div id="1" contenteditable="true"><b><i><u>He</u></i><u>llo </u></b><i>Wor</i><u><b>ld</b></u></div>
+    <div id="1" contenteditable="true"><sup><b><i><u>He</u></i><u>llo </u></b><i>Wor</i><u><b>ld</b></u></sup></div>
 
     <!-- <div id="1" contenteditable="true"><b>a</b>bcdefg</div> -->
 </body>
 <script>
+    const approvedTags = {
+        "bold": "b",
+        "italic": "i",
+        "underline": "u",
+        "superscript": "sup",
+        "subscript": "sub"
+    }
+
     function tagName(action) {
-        switch (action) {
-            case "bold": return "b";
-            case "italic": return "i";
-            case "underline": return "u";
-            default: return null;
-        }
+        if (approvedTags[action] == undefined) { return null; }
+        return approvedTags[action];
     }
 
     function lastIn(text) {
@@ -106,8 +111,10 @@
                 selection = selection.replaceAll(`</${tagName(action)}>`, "");
                 selection = openingTag + selection.replaceAll(`<${tagName(action)}>`, "");
             } else {
-                selection = openingTag + selection + enclosingTag;
-                console.log("Scenario 5");
+                before = before.substring(0, getIndexFrom(before, 1)) + openingTag + before.substring(getIndexFrom(before, 1)); //
+                after = after.substring(0, getIndexFrom(after, -1)) + enclosingTag + after.substring(getIndexFrom(after, -1))
+                // selection = openingTag + selection + enclosingTag;
+                console.log("Scenario 5 - " + before + selection + after);
             }
 
             node.innerHTML = before + selection + after;
@@ -117,18 +124,62 @@
         }
     }
 
-    function processContent(content) {
-        let allowedTags = [ "b", "i", "u" ];
-        
-        for (let offset = 0; offset < allowedTags.length; offset++) {
-            for (let index = 0; index < allowedTags.length; index++) {
-                content = content.replaceAll(`<${allowedTags[(offset + index) % allowedTags.length]}></${allowedTags[(offset + index) % allowedTags.length]}>`, "");
-                content = content.replaceAll(`</${allowedTags[(offset + index) % allowedTags.length]}><${allowedTags[(offset + index) % allowedTags.length]}>`, "");
+    function getIndexFrom(content, direction) {
+        let inTag = false;
+        let inSequence = false;
+        let lastEnd = content.length;
+
+        for (let index = 0; index < content.length; index++) { 
+            if (!inTag && content[index] == "<") {
+                inTag = true;
+                if (!inSequence) {
+                    lastEnd = index;
+                    inSequence = true;
+                }
+            } else if (inTag && content[index] == ">") {
+                inTag = false;
+            } else if (direction == -1 && !inTag) {
+                return index;
+            } else if (direction != -1 && inSequence && !inTag) {
+                inSequence = false;
             }
         }
 
+        if (inSequence && direction == -1) { return content.length; }
+        return lastEnd;
+    }
+
+    Object.prototype.getValueByIndex = function (index) {
+        const keys = Object.getOwnPropertyNames(this);
+        const key = keys[index];
+        return this[key];
+    };
+
+    function processContent(content) {
+        const tagsCount = Object.keys(approvedTags).length;
+
+        for (let offset = 0; offset < tagsCount; offset++) {
+            for (let index = 0; index < tagsCount; index++) {
+                content = content.replaceAll(`<${approvedTags.getValueByIndex((offset + index) % tagsCount)}></${approvedTags.getValueByIndex((offset + index) % tagsCount)}>`, "");
+                content = content.replaceAll(`</${approvedTags.getValueByIndex((offset + index) % tagsCount)}><${approvedTags.getValueByIndex((offset + index) % tagsCount)}>`, "");
+            }
+        }
+        
         return content;
     }
+
+    // function processContent(content) {
+    //     let allowedTags = [ "b", "i", "u", "sup" ];
+        
+    //     for (let offset = 0; offset < allowedTags.length; offset++) {
+    //         for (let index = 0; index < allowedTags.length; index++) {
+    //             content = content.replaceAll(`<${allowedTags[(offset + index) % allowedTags.length]}></${allowedTags[(offset + index) % allowedTags.length]}>`, "");
+    //             content = content.replaceAll(`</${allowedTags[(offset + index) % allowedTags.length]}><${allowedTags[(offset + index) % allowedTags.length]}>`, "");
+    //         }
+    //     }
+
+    //     return content;
+    // }
 
     function tagsIn(from, to, currentTags, id, onlyFull = false) { // Returns formating of text on some index
         
